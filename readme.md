@@ -128,7 +128,7 @@ npx branchify init
 
 ---
 
-## CLI Commands
+<!-- ## CLI Commands
 
 Initialize Branchify:
 
@@ -164,7 +164,7 @@ Delete environment:
 
 ```bash
 branchify delete <branch-name>
-```
+``` -->
 
 ---
 

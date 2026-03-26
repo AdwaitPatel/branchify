@@ -4,7 +4,7 @@ import About from '../components/About';
 import Features from '../components/Features';
 import HowItWorks from '../components/HowItWorks';
 import DashboardPreview from '../components/DashboardPreview';
-import CTASection from '../components/CTASection';
+//import CTASection from '../components/CTASection';
 import Footer from '../components/Footer';
 
 export const Landing = () => {
@@ -36,7 +36,7 @@ export const Landing = () => {
       <Features />
       <HowItWorks />
       <DashboardPreview />
-      <CTASection />
+      {/* <CTASection /> */}
       <Footer />
     </div>
   );

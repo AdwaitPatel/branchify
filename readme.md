@@ -1,284 +1,294 @@
 # Branchify
 
-Branchify is a branch-aware environment orchestration tool for Node.js applications. It automatically provisions isolated development environments for each Git branch by generating branch-specific databases, assigning unique runtime ports, and managing application processes.
+Branchify automatically provisions isolated development environments based on Git branches.  
+When a developer switches branches, the appropriate environment configuration is loaded and a dedicated environment instance is created.
 
-Inspired by modern preview deployment systems, Branchify brings structured environment isolation to local development workflows.
-
----
-
-## Overview
-
-Modern teams frequently work with multiple feature branches simultaneously. Shared databases and ports often lead to:
-
-- Configuration conflicts  
-- Broken development environments  
-- Data overlap between branches  
-
-Branchify solves this by automatically mapping:
-
-> **One Git branch → One isolated environment**
-
-Each branch receives:
-
-- A unique database name  
-- A unique runtime port  
-- Independent process lifecycle  
-- Environment metadata tracking  
-
-Branchify integrates with Git hooks to detect branch changes and provision environments automatically.
+This allows developers to work on multiple features simultaneously without configuration conflicts.
 
 ---
 
-## Core Concepts
+## Problem
 
-### Branch-Aware Provisioning
+Modern development teams frequently work with multiple branches such as:
 
-When a developer switches to a branch:
+main
+staging/*
+feature/*
 
-```bash
-git checkout feature-login
-```
+Each branch may require different:
 
-Branchify automatically:
+- environment variables
+- database instances
+- runtime configurations
+- ports or services
 
-- Detects the branch name  
-- Generates a branch-specific database  
-- Assigns an available port  
-- Starts the application with overridden environment variables  
-- Stores environment metadata  
+Managing these manually can lead to:
+
+- configuration conflicts
+- accidental production usage
+- broken development setups
 
 ---
 
-### Environment Isolation
+## Solution
 
-Each branch runs independently with:
+Branchify automates environment management by:
 
-- Separate database instance (MongoDB, PostgreSQL, or MySQL)  
-- Dedicated runtime port  
-- Independent process ID  
-- Isolated configuration context  
-
-This prevents data collisions and runtime conflicts during parallel development.
+1. Detecting Git branch changes using Git hooks
+2. Mapping branches to environments (dev / staging / prod)
+3. Loading the correct environment configuration
+4. Provisioning an isolated environment via a backend service
+5. Persisting environment state using MongoDB
 
 ---
 
 ## Architecture
 
-High-level workflow:
+Developer
+   |
+   | git checkout feature/login
+   v
+Git Hook (post-checkout)
+   |
+   v
+switch-env.sh
+   |
+   |-- detects branch type
+   |-- loads environment configuration
+   |-- calls backend API
+          |
+          v
+Express Backend
+   |
+   |-- provisions environment
+   |-- allocates port
+   |-- generates database
+          |
+          v
+MongoDB
+(persistent environment storage)
 
-```
-Git Branch Change
-        ↓
-Git Hook Triggered (post-checkout)
-        ↓
-Branchify CLI Executes
-        ↓
-Provision Database + Port
-        ↓
-Start Application Process
-        ↓
-Store Metadata in Control Database
-        ↓
-Expose Status via API
-        ↓
-Display in Dashboard
-```
+---
 
+## Project Structure
+```
+branchify/
+│
+├── client/
+│   └── frontend UI
+│
+├── server/
+│   ├── src/
+│   │   ├── app.js
+│   │   ├── manager/
+│   │   │   └── envManager.js
+│   │   └── models/
+│   │       └── Environment.js
+│   │
+│   ├── server.js
+│   └── package.json
+│
+├── scripts/
+│   ├── branchify.sh
+│   ├── install.sh
+│   └── switch-env.sh
+│
+├── tasks.md
+└── README.md
+```
 ---
 
 ## Features
 
-### MVP Features
+Automatic Environment Switching
 
-- Detect current Git branch  
-- Generate branch-specific database names  
-- Assign dynamic available ports  
-- Start application with overridden environment variables  
-- Track process ID and status  
-- Stop running environments  
-- Local metadata storage  
+Branchify detects branch changes and loads the appropriate environment configuration automatically.
 
-### v1.0 Features
+Example:
 
-- Automatic Git hook installation  
-- Express control API  
-- React-based dashboard  
-- MongoDB control database  
-- Database adapters (MongoDB, PostgreSQL, MySQL)  
-- Environment lifecycle management  
-- Process tracking and recovery  
-- Log management  
-- Environment cleanup on branch deletion  
-<!--
+git checkout feature/login
+
+Branchify detects the branch and loads the development configuration.
+
+---
+
+Branch-Based Environment Mapping
+
+Branch Pattern        Environment
+--------------------------------
+main                  production
+staging/*             staging
+feature/*             development
+
+---
+
+Environment Provisioning
+
+When a branch is used for the first time, Branchify:
+
+- creates a dedicated environment
+- assigns a unique port
+- generates a database name
+- stores environment metadata
+
+Example:
+
+feature/login
+port: 3002
+database: feature_login_db
+
+---
+
+Persistent Environment Storage
+
+Environment metadata is stored in MongoDB.
+
+Example record:
+
+{
+  branch: "feature_login",
+  port: 3002,
+  dbName: "feature_login_db",
+  status: "running",
+  pid: 4123
+}
+
 ---
 
 ## Installation
 
-Install globally:
+Clone the repository:
 
-```bash
-npm install -g branchify
-```
+git clone https://github.com/<your-username>/branchify.git
 
-Or use via npx:
+Install server dependencies:
 
-```bash
-npx branchify init
-```
+cd server
+npm install
 
----
+Start MongoDB.
 
- ## CLI Commands
+Start the backend server:
 
-Initialize Branchify:
-
-```bash
-branchify init
-```
-
-Synchronize current branch environment:
-
-```bash
-branchify sync
-```
-
-Start environment manually:
-
-```bash
-branchify start
-```
-
-Stop current environment:
-
-```bash
-branchify stop
-```
-
-List all environments:
-
-```bash
-branchify list
-```
-
-Delete environment:
-
-```bash
-branchify delete <branch-name>
-``` -->
+node server.js
 
 ---
 
-## Configuration
+## Using Branchify in Another Repository
 
-Branchify reads your base `.env` file and derives branch-specific configurations at runtime.
+Install Branchify into your project:
 
-Example base configuration:
+./scripts/install.sh <path-to-your-repository>
 
-```env
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASSWORD=secret
-DB_NAME=app_db
-DB_TYPE=postgres
-PORT=3000
-```
+This creates:
 
-For a branch named `feature-login`, Branchify generates:
-
-```env
-DB_NAME=feature_login_db
-PORT=3002
-```
-
-The original `.env` file remains unchanged.
+.branchify/
+  environments/
+    dev/.env
+    staging/.env
+    prod/.env
 
 ---
 
-## Supported Databases
+## Configure Environments
 
-Branchify is database-agnostic.
+Edit environment configurations:
 
-### MongoDB
+.branchify/environments/dev/.env
+.branchify/environments/staging/.env
+.branchify/environments/prod/.env
 
-- Database auto-created on first write  
-- No explicit provisioning required  
+Example:
 
-### PostgreSQL / MySQL
-
-- Executes `CREATE DATABASE`  
-- Runs existing migrations  
-- Uses shared credentials  
-
----
-
-## Data Model (Control Database)
-
-Example environment metadata:
-
-```json
-{
-  "branch": "feature-login",
-  "port": 3002,
-  "dbName": "feature_login_db",
-  "status": "running",
-  "pid": 8231,
-  "createdAt": "2026-02-17T10:00:00Z",
-  "updatedAt": "2026-02-17T10:05:00Z"
-}
-```
+NODE_ENV=development
+MONGO_URL=mongodb://localhost/dev_db
+API_SECRET=my-secret
 
 ---
 
-## Dashboard
+## Usage
 
-Branchify includes a web dashboard for:
+Switch branches normally:
 
-- Viewing active environments  
-- Monitoring status  
-- Viewing assigned ports  
-- Restarting environments  
-- Deleting environments  
-- Viewing logs  
+git checkout feature/payment
 
-The dashboard communicates with the Express API to retrieve real-time environment state.
+Branchify will automatically:
 
----
-
-## Use Cases
-
-- Parallel feature development  
-- Preventing database conflicts  
-- Testing multiple branches simultaneously  
-- Isolated debugging sessions  
-- Structured local DevOps workflows  
+- detect the branch
+- load the correct configuration
+- create an environment
+- assign a database and port
 
 ---
 
-## Why Branchify
+## Example
 
-Traditional development workflows share a single database and runtime environment across all branches. This leads to:
+git checkout feature/frontend
 
-- Accidental data pollution  
-- Configuration conflicts  
-- Difficult parallel testing  
-- Fragile staging environments  
+Output:
 
-Branchify introduces structured isolation without requiring containers or complex infrastructure.
+Current Git Branch: feature/frontend
+Mapped Environment: dev
+Applying environment configuration...
+Environment created
+
+Environment created:
+
+port: 3002
+database: feature_frontend_db
 
 ---
 
-## Roadmap
+## CLI Commands
 
-- Advanced log streaming  
-- Docker-based environment provisioning  
-- Cloud deployment integration  
-- Team-based multi-user support  
-- Environment analytics and usage tracking  
+Show environments:
+
+./branchify.sh status
+
+Delete environment for a branch:
+
+./branchify.sh delete <branch>
+
+Example:
+
+./branchify.sh delete feature_login
+
+---
+
+## Technologies Used
+
+Bash — CLI automation  
+Git Hooks — branch detection  
+Node.js — backend orchestration  
+Express.js — API layer  
+MongoDB — persistent storage  
+Node IPC — environment manager communication
+
+---
+
+## Future Improvements
+
+Possible improvements include:
+
+- Cross-platform CLI support (Linux / Mac / Windows)
+- Docker-based environment isolation
+- Automatic backend startup
+- Environment dashboard UI
+- npm-installable CLI tool
+- Preview deployments per branch
+
+---
+
+## Inspiration
+
+Branchify draws inspiration from modern DevOps systems such as:
+
+- Vercel Preview Environments
+- Heroku Review Apps
+- Docker Compose development environments
 
 ---
 
 ## License
 
 MIT License
-
----

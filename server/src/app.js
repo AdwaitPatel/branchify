@@ -1,83 +1,150 @@
 import express from "express";
+import mongoose from "mongoose";
+import { fork } from "child_process";
+
+import Environment from "./models/Environment.js";
 
 const app = express();
+
 app.use(express.json());
 
-let environments = {};
 let basePort = 3000;
 
-// generate DB name from branch name
+/* MongoDB connection */
+
+mongoose.connect("mongodb://127.0.0.1:27017/branchify");
+
+mongoose.connection.once("open", () => {
+  console.log("MongoDB connected");
+});
+
+
+/* IPC manager */
+
+const manager = fork("./src/manager/envManager.js");
+
+manager.on("message", (msg) => {
+  console.log("Manager response:", msg);
+});
+
+
+/* helper functions */
+
 function generateDBName(branch) {
   return branch.replace(/-/g, "_") + "_db";
 }
 
-// to get next available port for new environment
 function getNextPort() {
   basePort++;
   return basePort;
 }
 
-// here we have create environment for given branch, we will generate port and db name based on branch name
-app.post("/env", (req, res) => {
-  const { branch } = req.body;
+
+/* Create environment */
+
+app.post("/env", async (req, res) => {
+
+  const { branch, env } = req.body;
 
   if (!branch) {
-    return res.status(400).json({ error: "Branch is required" });
+    return res.status(400).json({ error: "Branch required" });
   }
 
-  if (environments[branch]) {
+  const exists = await Environment.findOne({ branch });
+
+  if (exists) {
     return res.status(400).json({ error: "Environment already exists" });
   }
 
   const port = getNextPort();
+
   const dbName = generateDBName(branch);
 
-  environments[branch] = {
+  manager.send({
+    type: "create",
+    data: { branch, port }
+  });
+
+  const env = await Environment.create({
+    branch,
     port,
     dbName,
-    status: "running",
     pid: Math.floor(Math.random() * 10000)
-  };
+  });
 
   res.json({
     message: "Environment created",
-    environment: environments[branch]
+    environment: env
   });
+
 });
 
-// here we will return all the environments with their details
-app.get("/env", (req, res) => {
-  res.json(environments);
+
+/* List environments */
+
+app.get("/env", async (req, res) => {
+
+  const envs = await Environment.find();
+
+  res.json(envs);
+
 });
 
-// now we will stop the environment for given branch, we will just change the status to stopped
-app.post("/env/:branch/stop", (req, res) => {
+
+/* Stop environment */
+
+app.post("/env/:branch/stop", async (req, res) => {
+
   const { branch } = req.params;
 
-  if (!environments[branch]) {
+  const env = await Environment.findOne({ branch });
+
+  if (!env) {
     return res.status(404).json({ error: "Not found" });
   }
 
-  environments[branch].status = "stopped";
+  env.status = "stopped";
+
+  await env.save();
+
+  manager.send({
+    type: "stop",
+    data: { branch }
+  });
 
   res.json({ message: "Environment stopped" });
+
 });
 
-// delete the environment for given branch, we will remove it from our environments object 
-app.delete("/env/:branch", (req, res) => {
+
+/* Delete environment */
+
+app.delete("/env/:branch", async (req, res) => {
+
   const { branch } = req.params;
 
-  if (!environments[branch]) {
-    return res.status(404).json({ error: "Not found" });
-  }
-
-  delete environments[branch];
+  await Environment.deleteOne({ branch });
 
   res.json({ message: "Environment deleted" });
+
 });
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+
+/* Aggregation report */
+
+app.get("/env/report", async (req, res) => {
+
+  const stats = await Environment.aggregate([
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  res.json(stats);
+
 });
 
 export default app;

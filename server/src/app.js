@@ -65,7 +65,7 @@ app.post("/env", async (req, res) => {
     data: { branch, port }
   });
 
-  const env = await Environment.create({
+  const environment = await Environment.create({
     branch,
     port,
     dbName,

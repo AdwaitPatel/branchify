@@ -10,7 +10,7 @@ echo "Current Git Branch: $BRANCH"
 echo "--------------------------------"
 
 # Map branch → environment
-if [[ "$BRANCH" == "main" ]]; then
+if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
     TARGET_ENV="prod"
 elif [[ "$BRANCH" == staging/* ]]; then
     TARGET_ENV="staging"

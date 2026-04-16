@@ -42,7 +42,7 @@ SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '_')
 
 echo "Checking backend for existing environment..."
 
-EXISTS=$(curl -s "$BACKEND_URL/env" | grep "\"$SAFE_BRANCH\"")
+EXISTS=$(curl -s "$BACKEND_URL/env" | jq -r ".[] | select(.branch == \"$SAFE_BRANCH\") | .branch")
 
 if [ -z "$EXISTS" ]; then
     echo "Creating environment..."

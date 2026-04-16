@@ -2,9 +2,12 @@ import express from "express";
 import mongoose from "mongoose";
 import { fork } from "child_process";
 
+import cors from "cors";
 import Environment from "./models/Environment.js";
 
 const app = express();
+
+app.use(cors());
 
 app.use(express.json());
 
@@ -14,8 +17,12 @@ let basePort = 3000;
 
 mongoose.connect("mongodb://127.0.0.1:27017/branchify");
 
-mongoose.connection.once("open", () => {
+mongoose.connection.once("open", async () => {
   console.log("MongoDB connected");
+  const maxEnv = await Environment.findOne().sort("-port");
+  if (maxEnv && maxEnv.port >= 3000) {
+    basePort = maxEnv.port;
+  }
 });
 
 
@@ -74,7 +81,7 @@ app.post("/env", async (req, res) => {
 
   res.json({
     message: "Environment created",
-    environment: env
+    environment
   });
 
 });
@@ -124,6 +131,11 @@ app.delete("/env/:branch", async (req, res) => {
   const { branch } = req.params;
 
   await Environment.deleteOne({ branch });
+
+  manager.send({
+    type: "stop",
+    data: { branch }
+  });
 
   res.json({ message: "Environment deleted" });
 
